@@ -4,6 +4,13 @@ from tqdm import tqdm
 
 # Helper functions
 
+def normalize_pixel_intensities(frames):
+    frames = frames - np.array(frames).mean()
+    frames = frames/np.abs(frames).max()/2
+    frames = frames+.5
+    frames = frames*255
+    return frames.astype(np.uint8)
+
 def crop_central_square(img):
     """
     Crops the central square region from an image.
@@ -56,7 +63,7 @@ def coswin(n, inner_radius, outer_radius):
     W[idx2] = 0;
     return W.T # Transpose to match input dimensions
 
-def crop_and_mask(frames):
+def crop_and_mask_video(frames):
     """
     Applies a cosine window mask to each frame in a list of frames and then crops to the central square.
 
@@ -71,17 +78,39 @@ def crop_and_mask(frames):
     print('Processing frames...\n')
     for ii in tqdm(range(frames.shape[0]-1)):
         img = frames[ii]
-        # Normalize image from [-2, 2] to [0, 1]
-        img = img / 2 + 0.5
 
         # Create and apply a cosine window mask
         cwin = coswin(img.shape, 12, 14)
-        masked = cwin * img
+        masked = cwin * (img-255/2) + 255/2
 
         # Crop the central square of the masked image
         cropped = crop_central_square(masked)
         masked_and_cropped.append(cropped)
 
     # Stack all processed frames into a single numpy array
-    frames_processed = np.stack(masked_and_cropped)
+    frames_processed = np.stack(masked_and_cropped).astype(np.uint16)
+    return frames_processed
+
+def crop_video(frames):
+    """
+    Crops to the central square.
+
+    Args:
+    frames (list of numpy.ndarray): List of image frames to process.
+
+    Returns:
+    numpy.ndarray: An array of processed frames, each masked and cropped.
+    """
+    all = []
+
+    print('Processing frames...\n')
+    for ii in tqdm(range(frames.shape[0]-1)):
+        img = frames[ii]
+
+        # Crop the central square of the masked image
+        cropped = crop_central_square(img)
+        all.append(cropped)
+
+    # Stack all processed frames into a single numpy array
+    frames_processed = np.stack(all)
     return frames_processed
